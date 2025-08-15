@@ -13,7 +13,8 @@ import {
   ButtonInteraction,
   WebhookClient,
   Message,
-  MessageFlags
+  MessageFlags,
+  GuildMember
 } from 'discord.js';
 import { buildThreadName, findExistingTimesThread, getDisplayNameForNotification } from './util';
 import fs from 'fs';
@@ -162,17 +163,20 @@ client.on(Events.MessageCreate, async (message: Message) => {
     try {
       member = message.member || await message.guild?.members.fetch(message.author.id).catch(() => null);
     } catch {}
-    const displayName = getDisplayNameForNotification(member, message.author);
+    const displayName = getDisplayNameForNotification(member || null, message.author);
+    
+    // スレッドへのリンクを追加
+    const threadLink = `\n[📌 スレッドで見る](${thread.url})`;
+    const contentWithLink = message.content ? `${message.content}${threadLink}` : threadLink;
     
     // メッセージを転送（ユーザーの名前とアバターを保持）
     const webhookMessage = await webhookClient.send({
-      content: message.content,
+      content: contentWithLink,
       username: `${displayName} (times)`,
       avatarURL: message.author.displayAvatarURL(),
       embeds: message.embeds,
       files: message.attachments.map(a => a.url),
-      allowedMentions: { parse: [] }, // メンションを無効化
-      wait: true // Wait for the message to be sent to get its ID
+      allowedMentions: { parse: [] } // メンションを無効化
     });
     
     // Parse webhook URL to get ID and token
@@ -232,7 +236,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
     try {
       member = newMessage.member || await newMessage.guild?.members.fetch(newMessage.author!.id).catch(() => null);
     } catch {}
-    const displayName = getDisplayNameForNotification(member, newMessage.author!);
+    const displayName = getDisplayNameForNotification(member || null, newMessage.author!);
     
     // Edit the webhook message
     await webhookClient.editMessage(webhookInfo.messageId, {
@@ -416,7 +420,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       // スレッド名
-      const threadName = buildThreadName(buttonInteraction.member || buttonInteraction.user);
+      const member = buttonInteraction.member instanceof GuildMember ? buttonInteraction.member : null;
+      const threadName = buildThreadName(member || buttonInteraction.user);
 
       // スレッド作成は「設置メッセージから」開始すると見通しが良い
       // startMessage: ボタンが載っているメッセージID（= interaction.message.id）から開始
