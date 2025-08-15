@@ -12,7 +12,8 @@ import {
   ChatInputCommandInteraction,
   ButtonInteraction,
   WebhookClient,
-  Message
+  Message,
+  MessageFlags
 } from 'discord.js';
 import { buildThreadName, findExistingTimesThread } from './util';
 import fs from 'fs';
@@ -63,7 +64,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent  // Required for reading message content in threads (privileged intent - must be enabled in Discord Developer Portal)
   ]
 });
 
@@ -84,6 +85,16 @@ client.once(Events.ClientReady, (c) => {
 // Helper function to get or create webhook for a channel
 async function getOrCreateWebhook(channel: TextChannel): Promise<string | null> {
   try {
+    // Check if bot has MANAGE_WEBHOOKS permission
+    const me = channel.guild.members.me;
+    if (!me) return null;
+    
+    const permissions = channel.permissionsFor(me);
+    if (!permissions?.has(PermissionFlagsBits.ManageWebhooks)) {
+      console.error('Bot lacks MANAGE_WEBHOOKS permission in channel:', channel.name);
+      return null;
+    }
+    
     const webhooks = await channel.fetchWebhooks();
     let webhook = webhooks.find(wh => wh.name === 'Times Notification Bot');
     
@@ -172,7 +183,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (channel.type !== ChannelType.GuildText) {
           return commandInteraction.reply({
             content: '❌ テキストチャンネルを指定してください。',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
         }
         
@@ -181,7 +192,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         
         return commandInteraction.reply({
           content: `✅ 通知チャンネルを <#${channel.id}> に設定しました。`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
       
@@ -192,7 +203,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         
         return commandInteraction.reply({
           content: `✅ 通知を${enabled ? '有効' : '無効'}にしました。`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
       
@@ -208,7 +219,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         
         return commandInteraction.reply({
           content: status.join('\n'),
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
       
@@ -219,7 +230,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           if (channel.type !== ChannelType.GuildText) {
             return commandInteraction.reply({
               content: '❌ テキストチャンネルを指定してください。',
-              ephemeral: true
+              flags: MessageFlags.Ephemeral
             });
           }
           config.timesChannelId = channel.id;
@@ -231,7 +242,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         
         return commandInteraction.reply({
           content: `✅ Timesチャンネルを ${channel ? `<#${channel.id}>` : 'デフォルト（ボタン設置チャンネル）'} に設定しました。`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
       
@@ -242,7 +253,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         
         return commandInteraction.reply({
           content: `✅ 挨拶メッセージを設定しました:\n> ${message}`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
       
@@ -253,7 +264,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         
         return commandInteraction.reply({
           content: `✅ スレッドアーカイブ時間を ${minutes}分 に設定しました。`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
     }
@@ -266,7 +277,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!targetChannel || targetChannel.type !== ChannelType.GuildText) {
         return commandInteraction.reply({ 
           content: '❌ テキストチャンネルで実行してください。', 
-          ephemeral: true 
+          flags: MessageFlags.Ephemeral 
         });
       }
 
@@ -276,7 +287,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!perms?.has(PermissionFlagsBits.SendMessages) || !perms?.has(PermissionFlagsBits.CreatePublicThreads)) {
         return commandInteraction.reply({ 
           content: '❌ Botに「メッセージ送信」「公開スレッド作成」権限が必要です。', 
-          ephemeral: true 
+          flags: MessageFlags.Ephemeral 
         });
       }
 
@@ -287,7 +298,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       return commandInteraction.reply({ 
         content: `✅ ボタンを <#${targetChannel.id}> に設置しました。`, 
-        ephemeral: true 
+        flags: MessageFlags.Ephemeral 
       });
     }
 
@@ -309,7 +320,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!channel || channel.type !== ChannelType.GuildText) {
         return buttonInteraction.reply({ 
           content: '❌ #times チャンネルが無効です。管理者へ連絡してください。', 
-          ephemeral: true 
+          flags: MessageFlags.Ephemeral 
         });
       }
 
@@ -318,7 +329,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (existing) {
         return buttonInteraction.reply({
           content: `ℹ️ すでに times が存在します → ${existing.toString()}`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -342,7 +353,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // ユーザーへエフェメラル返信（リンク提示）
       return buttonInteraction.reply({
         content: `✅ あなたの times を作成しました → ${thread.toString()}`,
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
   } catch (err) {
@@ -351,7 +362,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       try {
         await interaction.reply({ 
           content: '❌ エラーが発生しました。Bot権限・チャンネル設定をご確認ください。', 
-          ephemeral: true 
+          flags: MessageFlags.Ephemeral 
         });
       } catch {}
     }

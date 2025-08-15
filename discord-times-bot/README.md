@@ -18,8 +18,22 @@
 - Docker と Docker Compose がインストール済み
 - Discord Bot トークンを取得済み
 - Bot をサーバーに招待済み（必要な権限付与済み）
+- **重要**: Discord Developer Portal で MESSAGE CONTENT INTENT を有効化済み（下記参照）
 
-### 1. 環境変数の設定
+### 1. Discord Developer Portal での設定（重要）
+
+**MESSAGE CONTENT INTENT の有効化が必須です:**
+
+1. [Discord Developer Portal](https://discord.com/developers/applications) にアクセス
+2. あなたの Bot アプリケーションを選択
+3. 左メニューから「Bot」セクションを選択
+4. 「Privileged Gateway Intents」セクションまでスクロール
+5. **「MESSAGE CONTENT INTENT」をオンにする**
+6. 設定を保存
+
+> ⚠️ **注意**: MESSAGE CONTENT INTENT が無効の場合、Bot は「Used disallowed intents」エラーで起動に失敗します。このインテントは、Bot がtimesスレッド内のメッセージを読み取り、通知チャンネルに転送するために必要です。
+
+### 2. 環境変数の設定
 ```bash
 cp .env.example .env
 ```
@@ -31,27 +45,27 @@ cp .env.example .env
 
 **注意**: その他の設定（通知チャンネル、挨拶メッセージ等）はすべて `/times_config` コマンドで設定します。
 
-### 2. Docker イメージのビルド
+### 3. Docker イメージのビルド
 ```bash
 docker-compose build
 ```
 
-### 3. スラッシュコマンドの登録
+### 4. スラッシュコマンドの登録
 ```bash
 docker-compose --profile setup run --rm register-commands
 ```
 
-### 4. Bot の起動
+### 5. Bot の起動
 ```bash
 docker-compose up -d
 ```
 
-### 5. ログの確認
+### 6. ログの確認
 ```bash
 docker-compose logs -f bot
 ```
 
-### 6. Bot の停止
+### 7. Bot の停止
 ```bash
 docker-compose down
 ```
@@ -109,6 +123,7 @@ Bot の動作設定を変更します（管理者権限が必要）：
 - **Send Messages**
 - **Create Public Threads**
 - **Send Messages in Threads**
+- **Manage Webhooks**（通知機能に必須）
 - **Manage Threads**（オプション）
 - **View Channel**
 - **Read Message History**
@@ -142,6 +157,7 @@ Bot の動作設定を変更します（管理者権限が必要）：
 1. `.env` ファイルの設定を確認
 2. Docker ログを確認: `docker-compose logs bot`
 3. Discord Developer Portal で Bot のトークンが有効か確認
+4. **MESSAGE CONTENT INTENT が有効になっているか確認**（「Used disallowed intents」エラーの場合）
 
 ### コマンドが表示されない
 1. コマンド登録を実行: `docker-compose --profile setup run --rm register-commands`
@@ -152,6 +168,11 @@ Bot の動作設定を変更します（管理者権限が必要）：
 1. Bot に `Create Public Threads` 権限があることを確認
 2. チャンネルの権限設定を確認
 3. `TIMES_CHANNEL_ID` が正しく設定されているか確認
+
+### 通知が機能しない
+1. Bot に `Manage Webhooks` 権限があることを確認
+2. 通知先チャンネルで Bot が Webhook を作成できることを確認
+3. `/times_config status` で通知が有効になっているか確認
 
 ## FAQ
 
