@@ -1,4 +1,7 @@
-# Discord Times Bot
+<img alt="times-discord" src="./logo.png">
+<p align="center">
+<h1>Discord Times Bot</h1>
+</p>
 
 Discordサーバーに、個人の分報チャンネル（times）を簡単に作成・管理するためのBotです。
 
