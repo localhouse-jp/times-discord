@@ -76,6 +76,17 @@ const commands = [
         .setName('status')
         .setDescription('現在の設定を表示します')
     )
+    .toJSON(),
+  
+  new SlashCommandBuilder()
+    .setName('times_rename')
+    .setDescription('自分のtimesスレッドの名前を変更します')
+    .addStringOption(opt =>
+      opt.setName('name')
+        .setDescription('新しい名前（times-は自動で付きます）')
+        .setRequired(true)
+        .setMaxLength(90)
+    )
     .toJSON()
 ];
 

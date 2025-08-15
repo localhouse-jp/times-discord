@@ -351,6 +351,92 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
     
+    // /times_rename コマンド - スレッド名変更
+    if (interaction.isChatInputCommand() && interaction.commandName === 'times_rename') {
+      const commandInteraction = interaction as ChatInputCommandInteraction;
+      const newName = commandInteraction.options.getString('name', true);
+      
+      // サニタイゼーション（不正な文字を削除）
+      const safeName = newName.replace(/[^\w\-ぁ-んァ-ヴー一-龠]/g, '').slice(0, 90);
+      if (!safeName) {
+        return commandInteraction.reply({
+          content: '❌ 有効な名前を入力してください。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+      
+      // 現在のチャンネルを取得
+      const channel = commandInteraction.channel;
+      if (!channel || !channel.isThread()) {
+        return commandInteraction.reply({
+          content: '❌ このコマンドはtimesスレッド内で実行してください。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+      
+      // timesスレッドかチェック
+      if (!channel.name.startsWith('times-')) {
+        return commandInteraction.reply({
+          content: '❌ このコマンドはtimesスレッド内でのみ使用できます。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+      
+      // スレッドの所有者チェック
+      // スレッド名から現在のユーザー情報を取得して比較
+      const member = commandInteraction.member as GuildMember;
+      const expectedThreadName = buildThreadName(member || commandInteraction.user);
+      const userIdInName = commandInteraction.user.id;
+      
+      // スレッド名に自分のIDまたは期待される名前が含まれているかチェック
+      if (!channel.name.includes(userIdInName) && channel.name !== expectedThreadName) {
+        // より詳細な所有者チェック：スレッドの作成者を確認
+        try {
+          // スレッドのメッセージ履歴から最初のメッセージを取得
+          const starterMessage = await channel.fetchStarterMessage().catch(() => null);
+          const firstMessages = await channel.messages.fetch({ limit: 1, after: '0' });
+          const firstMessage = firstMessages.first();
+          
+          // ボットが最初に送った挨拶メッセージに含まれるメンションを確認
+          if (firstMessage && firstMessage.author.bot) {
+            const mentionMatch = firstMessage.content.match(/<@(\d+)>/);
+            if (mentionMatch && mentionMatch[1] !== commandInteraction.user.id) {
+              return commandInteraction.reply({
+                content: '❌ 他の人のtimesスレッドの名前は変更できません。',
+                flags: MessageFlags.Ephemeral
+              });
+            }
+          } else if (!channel.name.includes(commandInteraction.user.username)) {
+            return commandInteraction.reply({
+              content: '❌ 他の人のtimesスレッドの名前は変更できません。',
+              flags: MessageFlags.Ephemeral
+            });
+          }
+        } catch (error) {
+          console.error('スレッド所有者の確認エラー:', error);
+        }
+      }
+      
+      // 新しいスレッド名を作成
+      const newThreadName = `times-${safeName}`;
+      
+      try {
+        // スレッド名を変更
+        await channel.setName(newThreadName);
+        
+        return commandInteraction.reply({
+          content: `✅ スレッド名を「${newThreadName}」に変更しました。`,
+          flags: MessageFlags.Ephemeral
+        });
+      } catch (error) {
+        console.error('スレッド名変更エラー:', error);
+        return commandInteraction.reply({
+          content: '❌ スレッド名の変更に失敗しました。権限を確認してください。',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+    }
+    
     // /times_setup 実行 → ボタン設置
     if (interaction.isChatInputCommand() && interaction.commandName === 'times_setup') {
       const commandInteraction = interaction as ChatInputCommandInteraction;
