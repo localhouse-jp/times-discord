@@ -76,8 +76,6 @@ const commands = [
         .setName('status')
         .setDescription('現在の設定を表示します')
     )
-    // 管理者ロール相当のみ実行可
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .toJSON()
 ];
 
