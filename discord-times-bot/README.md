@@ -4,6 +4,7 @@
 - #times に「times 生成ボタン」を設置
 - ユーザー押下時に当人専用スレッドを作成し、メンション付き挨拶を自動投稿
 - 親チャンネルは Admin 以外投稿不可、ただし **スレッド作成/スレッド内投稿は許可** の運用
+- **timesスレッドに投稿があった際、元のユーザー名とアバターで指定チャンネルに転送**
 
 ## 技術スタック
 - **Bun.js** - 高速なJavaScript/TypeScriptランタイム
@@ -24,12 +25,11 @@ cp .env.example .env
 ```
 
 `.env` ファイルを編集して、以下の値を設定：
-- `DISCORD_TOKEN`: Bot のトークン
-- `CLIENT_ID`: Bot のアプリケーション ID
+- `DISCORD_TOKEN`: Bot のトークン（必須）
+- `CLIENT_ID`: Bot のアプリケーション ID（必須）
 - `GUILD_ID`: 開発用ギルド ID（本番ではオプション）
-- `TIMES_CHANNEL_ID`: #times チャンネル ID（オプション）
-- `GREETING_MESSAGE`: 挨拶メッセージテンプレート
-- `THREAD_ARCHIVE_MINUTES`: スレッドアーカイブ時間
+
+**注意**: その他の設定（通知チャンネル、挨拶メッセージ等）はすべて `/times_config` コマンドで設定します。
 
 ### 2. Docker イメージのビルド
 ```bash
@@ -86,7 +86,16 @@ docker-compose up
 
 ### `/times_setup`
 実行チャンネル、または `channel` 引数で指定したチャンネルに「times 生成ボタン」を設置します。
-（`TIMES_CHANNEL_ID` を .env に設定すると、ボタン押下時のスレッド生成先を固定できます）
+
+### `/times_config`
+Bot の動作設定を変更します（管理者権限が必要）：
+
+- `/times_config channel <チャンネル>` - 通知先チャンネルを設定
+- `/times_config toggle <true/false>` - 通知のオン/オフを切り替え
+- `/times_config times_channel <チャンネル>` - timesスレッド作成先を固定（未指定でリセット）
+- `/times_config greeting <メッセージ>` - 挨拶メッセージを設定（`{mention}`でメンション置換）
+- `/times_config archive <分数>` - スレッドアーカイブ時間を設定（60/1440/4320/10080分から選択）
+- `/times_config status` - 現在の設定を表示
 
 ## 権限設計（推奨）
 
@@ -108,8 +117,12 @@ docker-compose up
 
 - **スレッド名**: `times-<display>-<userId>`（重複作成防止のため userId を含む）
 - **重複検知**: アクティブ/アーカイブ（公開）スレッドを走査
-- **アーカイブ時間**: `.env` の `THREAD_ARCHIVE_MINUTES`（既定 10080 分 = 7 日）
-- **挨拶文テンプレート**: `.env` の `GREETING_MESSAGE`（`{mention}` をユーザーに置換）
+- **設定保存**: `bot-config.json` ファイルに保存（環境変数不要）
+- **通知機能**: Webhook を使用して元のユーザー名とアバターで転送
+- **デフォルト値**:
+  - 挨拶メッセージ: `👋 {mention} さん、timesへようこそ！`
+  - アーカイブ時間: 10080分（7日）
+  - 通知: 有効
 
 ## Docker 構成
 

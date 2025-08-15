@@ -12,6 +12,74 @@ const commands = [
     )
     // 管理者ロール相当のみ実行可
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .toJSON(),
+  
+  new SlashCommandBuilder()
+    .setName('times_config')
+    .setDescription('times通知の設定を変更します')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('channel')
+        .setDescription('通知先チャンネルを設定します')
+        .addChannelOption(opt =>
+          opt.setName('channel')
+            .setDescription('通知を送信するチャンネル')
+            .setRequired(true)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('toggle')
+        .setDescription('通知のオン/オフを切り替えます')
+        .addBooleanOption(opt =>
+          opt.setName('enabled')
+            .setDescription('通知を有効にするか')
+            .setRequired(true)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('times_channel')
+        .setDescription('timesスレッド作成先チャンネルを設定します')
+        .addChannelOption(opt =>
+          opt.setName('channel')
+            .setDescription('timesチャンネル（未指定でリセット）')
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('greeting')
+        .setDescription('挨拶メッセージを設定します')
+        .addStringOption(opt =>
+          opt.setName('message')
+            .setDescription('挨拶メッセージ（{mention}でメンション置換）')
+            .setRequired(true)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('archive')
+        .setDescription('スレッドアーカイブ時間を設定します')
+        .addIntegerOption(opt =>
+          opt.setName('minutes')
+            .setDescription('アーカイブまでの時間（分）')
+            .setRequired(true)
+            .addChoices(
+              { name: '1時間', value: 60 },
+              { name: '24時間', value: 1440 },
+              { name: '3日', value: 4320 },
+              { name: '7日', value: 10080 }
+            )
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('status')
+        .setDescription('現在の設定を表示します')
+    )
+    // 管理者ロール相当のみ実行可
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .toJSON()
 ];
 
