@@ -423,11 +423,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const member = buttonInteraction.member instanceof GuildMember ? buttonInteraction.member : null;
       const threadName = buildThreadName(member || buttonInteraction.user);
 
-      // スレッド作成は「設置メッセージから」開始すると見通しが良い
-      // startMessage: ボタンが載っているメッセージID（= interaction.message.id）から開始
+      // スレッド作成（startMessageを使わずに独立したスレッドとして作成）
       const thread = await channel.threads.create({
         name: threadName,
-        startMessage: buttonInteraction.message.id,
         autoArchiveDuration: config.threadArchiveMinutes as any,
         reason: `times for ${buttonInteraction.user.tag}`
       });
