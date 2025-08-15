@@ -10,8 +10,6 @@ const commands = [
         .setDescription('#times チャンネル（未指定なら実行中のチャンネル）')
         .setRequired(false)
     )
-    // 管理者ロール相当のみ実行可
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .toJSON(),
   
   new SlashCommandBuilder()
