@@ -15,7 +15,7 @@ import {
   Message,
   MessageFlags
 } from 'discord.js';
-import { buildThreadName, findExistingTimesThread } from './util';
+import { buildThreadName, findExistingTimesThread, getDisplayNameForNotification } from './util';
 import fs from 'fs';
 import path from 'path';
 
@@ -112,6 +112,9 @@ async function getOrCreateWebhook(channel: TextChannel): Promise<string | null> 
   }
 }
 
+// Store webhook messages to track edits
+const webhookMessages = new Map<string, { webhookId: string; webhookToken: string; messageId: string }>();
+
 client.on(Events.MessageCreate, async (message: Message) => {
   try {
     // 通知が無効な場合はスキップ
@@ -154,19 +157,94 @@ client.on(Events.MessageCreate, async (message: Message) => {
     // Webhookクライアントを作成
     const webhookClient = new WebhookClient({ url: webhookUrl });
     
+    // Get member to access nickname (fetch if not cached)
+    let member = null;
+    try {
+      member = message.member || await message.guild?.members.fetch(message.author.id).catch(() => null);
+    } catch {}
+    const displayName = getDisplayNameForNotification(member, message.author);
+    
     // メッセージを転送（ユーザーの名前とアバターを保持）
-    await webhookClient.send({
+    const webhookMessage = await webhookClient.send({
       content: message.content,
-      username: `${message.author.username} (times)`,
+      username: `${displayName} (times)`,
       avatarURL: message.author.displayAvatarURL(),
       embeds: message.embeds,
       files: message.attachments.map(a => a.url),
-      allowedMentions: { parse: [] } // メンションを無効化
+      allowedMentions: { parse: [] }, // メンションを無効化
+      wait: true // Wait for the message to be sent to get its ID
     });
+    
+    // Parse webhook URL to get ID and token
+    const urlParts = webhookUrl.match(/webhooks\/(\d+)\/([^/]+)/);
+    if (urlParts && webhookMessage) {
+      webhookMessages.set(message.id, {
+        webhookId: urlParts[1],
+        webhookToken: urlParts[2],
+        messageId: webhookMessage.id
+      });
+    }
     
     webhookClient.destroy();
   } catch (err) {
     console.error('❌ times通知エラー:', err);
+  }
+});
+
+// Handle message edits
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+  try {
+    // 通知が無効な場合はスキップ
+    if (!config.notificationEnabled) return;
+    
+    // Partial messages need to be fetched
+    if (newMessage.partial) {
+      try {
+        await newMessage.fetch();
+      } catch (error) {
+        console.error('Failed to fetch message:', error);
+        return;
+      }
+    }
+    
+    // Botのメッセージは無視
+    if (newMessage.author?.bot) return;
+    
+    // スレッド内のメッセージかチェック
+    if (!newMessage.channel.isThread()) return;
+    
+    // timesスレッドかチェック
+    const thread = newMessage.channel;
+    if (!thread.name.startsWith('times-')) return;
+    
+    // Check if we have a webhook message to edit
+    const webhookInfo = webhookMessages.get(newMessage.id);
+    if (!webhookInfo) return;
+    
+    // Create webhook client with ID and token
+    const webhookClient = new WebhookClient({
+      id: webhookInfo.webhookId,
+      token: webhookInfo.webhookToken
+    });
+    
+    // Get member to access nickname (fetch if not cached)
+    let member = null;
+    try {
+      member = newMessage.member || await newMessage.guild?.members.fetch(newMessage.author!.id).catch(() => null);
+    } catch {}
+    const displayName = getDisplayNameForNotification(member, newMessage.author!);
+    
+    // Edit the webhook message
+    await webhookClient.editMessage(webhookInfo.messageId, {
+      content: newMessage.content || undefined,
+      embeds: newMessage.embeds,
+      files: newMessage.attachments.map(a => a.url),
+      allowedMentions: { parse: [] }
+    });
+    
+    webhookClient.destroy();
+  } catch (err) {
+    console.error('❌ times編集通知エラー:', err);
   }
 });
 
@@ -325,7 +403,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       // 既存スレッド探索（重複作成防止）
-      const existing = await findExistingTimesThread(channel, buttonInteraction.user.id);
+      const existing = await findExistingTimesThread(
+        channel, 
+        buttonInteraction.user.id,
+        buttonInteraction.member as GuildMember || buttonInteraction.user
+      );
       if (existing) {
         return buttonInteraction.reply({
           content: `ℹ️ すでに times が存在します → ${existing.toString()}`,
