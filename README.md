@@ -1,189 +1,159 @@
-# Discord Times Bot (Bun + Docker版)
+# Discord Times Bot
 
-## 目的
-- #times に「times 生成ボタン」を設置
-- ユーザー押下時に当人専用スレッドを作成し、メンション付き挨拶を自動投稿
-- 親チャンネルは Admin 以外投稿不可、ただし **スレッド作成/スレッド内投稿は許可** の運用
-- **timesスレッドに投稿があった際、元のユーザー名とアバターで指定チャンネルに転送**
+Discordサーバーに、個人の分報チャンネル（times）を簡単に作成・管理するためのBotです。
+
+## 主な機能
+
+- **timesチャンネル生成ボタン**: 指定チャンネルにボタンを設置し、誰でもワンクリックで自分専用のtimesスレを作成できます。
+- **自動挨拶**: スレッド作成時、ユーザーにメンション付きのウェルカムメッセージを自動で投稿します。
+- **柔軟な権限管理**: 親チャンネルは管理者のみ投稿可能にしつつ、スレッド内では誰でも自由に発言できる、といった運用が可能です。
+- **投稿の転送（Webhook）**: timesスレッド内の投稿を、元のユーザー名とアバターを維持したまま、指定した通知用チャンネルへリアルタイムに転送します。
 
 ## 技術スタック
-- **Bun.js** - 高速なJavaScript/TypeScriptランタイム
-- **TypeScript** - 型安全な開発
-- **Discord.js v14** - Discord Bot フレームワーク
-- **Docker** - コンテナ化による環境統一
 
-## セットアップ
+- Bun.js
+- TypeScript
+- Discord.js v14
+- Docker
 
-### 前提条件
-- Docker と Docker Compose がインストール済み
-- Discord Bot トークンを取得済み
-- Bot をサーバーに招待済み（必要な権限付与済み）
-- **重要**: Discord Developer Portal で MESSAGE CONTENT INTENT を有効化済み（下記参照）
+## 導入方法
 
-### 1. Discord Developer Portal での設定（重要）
+### 1. 前提条件
 
-**MESSAGE CONTENT INTENT の有効化が必須です:**
-
-1. [Discord Developer Portal](https://discord.com/developers/applications) にアクセス
-2. あなたの Bot アプリケーションを選択
-3. 左メニューから「Bot」セクションを選択
-4. 「Privileged Gateway Intents」セクションまでスクロール
-5. **「MESSAGE CONTENT INTENT」をオンにする**
-6. 設定を保存
-
-> ⚠️ **注意**: MESSAGE CONTENT INTENT が無効の場合、Bot は「Used disallowed intents」エラーで起動に失敗します。このインテントは、Bot がtimesスレッド内のメッセージを読み取り、通知チャンネルに転送するために必要です。
+- [Docker](https://www.docker.com/) と Docker Compose (v2) がインストールされていること。
+- Discord Botのトークンが取得済みであること。
+- **Message Content Intentが有効であること。**
+  - [Discord Developer Portal](https://discord.com/developers/applications) にアクセスし、あなたのBotの管理ページを開きます。
+  - `Bot` タブに移動します。
+  - `Privileged Gateway Intents` セクションにある **`MESSAGE CONTENT INTENT`** を有効にしてください。
+  - > ⚠️ **注意**: この設定が無効の場合、Botはメッセージ内容を読み取れず、起動に失敗します。
 
 ### 2. 環境変数の設定
-```bash
+
+`.env.example` をコピーして `.env` ファイルを作成します。
+
+```sh
 cp .env.example .env
 ```
 
-`.env` ファイルを編集して、以下の値を設定：
-- `DISCORD_TOKEN`: Bot のトークン（必須）
-- `CLIENT_ID`: Bot のアプリケーション ID（必須）
-- `GUILD_ID`: 開発用ギルド ID（本番ではオプション）
+作成した `.env` ファイルを編集し、以下の必須項目を設定してください。
 
-**注意**: その他の設定（通知チャンネル、挨拶メッセージ等）はすべて `/times_config` コマンドで設定します。
+- `DISCORD_TOKEN`: あなたのBotのトークン
+- `CLIENT_ID`: あなたのBotのアプリケーションID
+- `GUILD_ID`: Botを導入するサーバー（ギルド）のID
 
-### 3. Docker イメージのビルド
-```bash
-docker-compose build
+> **Note**: 通知チャンネルなどのBotの動作設定は、後述する `/times_config` コマンドですべて行います。
+
+### 3. Botの起動 (Docker)
+
+以下のコマンドを順番に実行します。
+
+```sh
+# 1. Dockerイメージをビルドします
+docker compose build
+
+# 2. スラッシュコマンドをDiscordに登録します
+docker compose --profile setup run --rm register-commands
+
+# 3. Botをバックグラウンドで起動します
+docker compose up -d
 ```
 
-### 4. スラッシュコマンドの登録
-```bash
-docker-compose --profile setup run --rm register-commands
+### 4. 動作確認
+
+Botが正常に起動したかログで確認します。
+
+```sh
+docker compose logs -f bot
 ```
 
-### 5. Bot の起動
-```bash
-docker-compose up -d
+### Botの停止
+
+```sh
+docker compose down
 ```
 
-### 6. ログの確認
-```bash
-docker-compose logs -f bot
-```
+## コマンド一覧
 
-### 7. Bot の停止
-```bash
-docker-compose down
-```
+### /times_setup
 
-## 開発環境での実行
+コマンドを実行したチャンネルに「times 生成ボタン」を設置します。`channel`引数で対象チャンネルを指定することも可能です。
 
-### ローカル開発（Docker なし）
-```bash
-# Bun のインストール（未インストールの場合）
+### /times_config (管理者権限)
+
+Botの動作を設定します。
+
+- `/times_config channel <チャンネル>`: 投稿の転送先となる通知チャンネルを設定します。
+- `/times_config toggle <true/false>`: 転送機能のON/OFFを切り替えます。
+- `/times_config greeting <メッセージ>`: times作成時の挨拶メッセージをカスタマイズします。（`{mention}`でユーザーへのメンションに置換されます）
+- `/times_config archive <分数>`: スレッドが自動でアーカイブされるまでの時間を設定します。（60/1440/4320/10080分）
+- `/times_config status`: 現在のBot設定一覧を表示します。
+
+## 権限設定（推奨）
+
+Botを最大限に活用するための推奨権限設定です。
+
+### times用チャンネルの権限 (`@everyone`に対して)
+
+- `メッセージを送信`: ❌
+- `公開スレッドを作成`: ✅
+- `スレッドでメッセージを送信`: ✅
+
+### Botに必要な権限
+
+- `チャンネルを見る`
+- `メッセージを送信`
+- `スレッドでメッセージを送信`
+- `公開スレッドを作成`
+- `メッセージ履歴を読む`
+- `Webhookの管理` (投稿転送機能に必須)
+
+## ローカル開発 (Dockerなし)
+
+Dockerを使わずにローカル環境で開発する場合の手順です。
+
+```sh
+# Bunをインストールします (未導入の場合)
 curl -fsSL https://bun.sh/install | bash
 
-# 依存関係のインストール
+# 依存パッケージをインストールします
 bun install
 
-# コマンド登録
+# コマンドを登録します
 bun run register
 
-# Bot 起動
+# Botを起動します
 bun run start
 
-# 開発モード（ファイル変更監視）
+# 開発モード (ファイルの変更を監視して自動で再起動します)
 bun run dev
 ```
 
-### Docker での開発モード
-`docker-compose.yml` でソースコードをマウントしているため、ファイル変更が即座に反映されます：
-```bash
-docker-compose up
-```
+## 仕様詳細
 
-## 運用コマンド
-
-### `/times_setup`
-実行チャンネル、または `channel` 引数で指定したチャンネルに「times 生成ボタン」を設置します。
-
-### `/times_config`
-Bot の動作設定を変更します（管理者権限が必要）：
-
-- `/times_config channel <チャンネル>` - 通知先チャンネルを設定
-- `/times_config toggle <true/false>` - 通知のオン/オフを切り替え
-- `/times_config times_channel <チャンネル>` - timesスレッド作成先を固定（未指定でリセット）
-- `/times_config greeting <メッセージ>` - 挨拶メッセージを設定（`{mention}`でメンション置換）
-- `/times_config archive <分数>` - スレッドアーカイブ時間を設定（60/1440/4320/10080分から選択）
-- `/times_config status` - 現在の設定を表示
-
-## 権限設計（推奨）
-
-### #times（テキストチャンネル）の権限上書き（@everyone に対して）
-- **Send Messages（メッセージ送信）**: ❌ Deny
-  → 親チャンネルに投稿できるのは Admin/Bot のみ
-- **Create Public Threads（公開スレッドの作成）**: ✅ Allow
-- **Send Messages in Threads（スレッドでのメッセージ送信）**: ✅ Allow
-
-### Bot（ロール）に必要な権限
-- **Send Messages**
-- **Create Public Threads**
-- **Send Messages in Threads**
-- **Manage Webhooks**（通知機能に必須）
-- **Manage Threads**（オプション）
-- **View Channel**
-- **Read Message History**
-
-## 仕様メモ
-
-- **スレッド名**: `times-<display>-<userId>`（重複作成防止のため userId を含む）
-- **重複検知**: アクティブ/アーカイブ（公開）スレッドを走査
-- **設定保存**: `bot-config.json` ファイルに保存（環境変数不要）
-- **通知機能**: Webhook を使用して元のユーザー名とアバターで転送
-- **デフォルト値**:
-  - 挨拶メッセージ: `👋 {mention} さん、timesへようこそ！`
-  - アーカイブ時間: 10080分（7日）
-  - 通知: 有効
-
-## Docker 構成
-
-### Dockerfile
-- ベースイメージ: `oven/bun:1-alpine`（軽量）
-- マルチステージビルド不要（Bun は TypeScript を直接実行）
-- 本番環境では最小限の依存関係のみ含む
-
-### docker-compose.yml
-- `bot`: メインの Bot サービス
-- `register-commands`: コマンド登録用（プロファイル分離）
-- 開発時はソースコードをマウント（ホットリロード対応）
+- **スレッド名**: `times-<ユーザー表示名>-<ユーザーID>` という形式で作成されます。（ユーザーIDを含めることで重複作成を防止）
+- **設定の永続化**: Botの設定は `bot-config.json` ファイルに保存されます。
+- **通知機能**: DiscordのWebhook機能を利用して、元のユーザー名とアバターで投稿を転送します。
 
 ## トラブルシューティング
 
-### Bot が起動しない
-1. `.env` ファイルの設定を確認
-2. Docker ログを確認: `docker-compose logs bot`
-3. Discord Developer Portal で Bot のトークンが有効か確認
-4. **MESSAGE CONTENT INTENT が有効になっているか確認**（「Used disallowed intents」エラーの場合）
-
-### コマンドが表示されない
-1. コマンド登録を実行: `docker-compose --profile setup run --rm register-commands`
-2. ギルドコマンドの場合は即座に反映、グローバルコマンドは最大 1 時間待つ
-3. Bot に適切な権限があることを確認
-
-### スレッドが作成されない
-1. Bot に `Create Public Threads` 権限があることを確認
-2. チャンネルの権限設定を確認
-3. `TIMES_CHANNEL_ID` が正しく設定されているか確認
-
-### 通知が機能しない
-1. Bot に `Manage Webhooks` 権限があることを確認
-2. 通知先チャンネルで Bot が Webhook を作成できることを確認
-3. `/times_config status` で通知が有効になっているか確認
+- **Botが起動しない**:
+  - `.env`ファイルの設定が正しいか確認してください。
+  - `docker compose logs bot`でエラー内容を確認してください。特に`MESSAGE CONTENT INTENT`に関するエラーが出ていないか確認しましょう。
+- **コマンドが表示されない**:
+  - `docker compose --profile setup run --rm register-commands` を実行したか確認してください。
+  - グローバルコマンドはDiscordに反映されるまで最大1時間かかることがあります。
+- **通知が機能しない**:
+  - Botに `Webhookの管理` 権限が付与されているか確認してください。
+  - `/times_config status` で通知機能が有効になっているか確認してください。
 
 ## FAQ
 
-- **Q: 親チャンネルに投稿不可でも、スレッドには投稿できる？**
-  A: はい。**Threads 許可**があればユーザーは自分の times に投稿可能です。
-
-- **Q: フォーラムチャンネルでも使える？**
-  A: 本実装は通常のテキストチャンネル＋スレッドに最適化しています。フォーラムチャンネル対応は別途実装が必要です。
-
-- **Q: Bun.js を使う利点は？**
-  A: 高速な起動時間、TypeScript のネイティブサポート、低メモリ使用量が主な利点です。
+- **Q: 親チャンネルに投稿できなくても、スレッドには投稿できますか？**
+  - A: はい。チャンネルの権限で「スレッドでメッセージを送信」が許可されていれば投稿可能です。
+- **Q: Bun.jsを使うメリットは何ですか？**
+  - A: 起動が非常に速く、TypeScriptを直接実行できるため、開発体験が向上します。
 
 ## ライセンス
+
 MIT
