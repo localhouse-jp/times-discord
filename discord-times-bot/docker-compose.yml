@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: discord-times-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # 開発時はソースコードをマウント（ホットリロード用）
+      # 本番環境では以下の行をコメントアウト
+      - ./src:/app/src:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    environment:
+      - NODE_ENV=production
+    networks:
+      - bot-network
+
+  # コマンド登録用（単発実行）
+  register-commands:
+    build: .
+    container_name: discord-times-bot-register
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    command: ["bun", "run", "register"]
+    networks:
+      - bot-network
+    profiles:
+      - setup
+
+networks:
+  bot-network:
+    driver: bridge
