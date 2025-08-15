@@ -166,7 +166,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     const displayName = getDisplayNameForNotification(member || null, message.author);
     
     // スレッドへのリンクを追加
-    const threadLink = `\n[📌 スレッドで見る](${thread.url})`;
+    const threadLink = `\n[スレッドで見る](${thread.url})`;
     const contentWithLink = message.content ? `${message.content}${threadLink}` : threadLink;
     
     // メッセージを転送（ユーザーの名前とアバターを保持）
