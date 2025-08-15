@@ -513,7 +513,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const thread = await channel.threads.create({
         name: threadName,
         autoArchiveDuration: config.threadArchiveMinutes as any,
-        reason: `times for ${buttonInteraction.user.tag}`
+        reason: `times for ${buttonInteraction.user.tag}`,
+        invitable: false  // システムメッセージを抑制
       });
 
       // 挨拶 + メンション + rename案内
